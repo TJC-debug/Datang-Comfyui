@@ -1,4 +1,5 @@
 import { app } from "../../../scripts/app.js";
+import { hideDataWidget, afterLayoutConfigured } from "./id_photo_layout_widgets.js";
 import {
     buildLayoutCandidates,
     DEFAULT_DPI,
@@ -312,42 +313,6 @@ function installStyles() {
     document.head.appendChild(style);
 }
 
-function hideDataWidget(node, originalWidget, onExternalValue) {
-    const index = node.widgets?.indexOf(originalWidget) ?? -1;
-    if (index < 0) return null;
-    let storedValue = originalWidget.value;
-    let internalWrite = false;
-    const widget = {
-        ...originalWidget,
-        hidden: true,
-        datangHidden: true,
-        computeSize: () => [0, -4],
-        computeLayoutSize: () => ({ minHeight: 0, maxHeight: 0, minWidth: 0 }),
-        draw: () => {},
-        serializeValue: () => storedValue,
-        writeFromUi(value) {
-            internalWrite = true;
-            this.value = value;
-            internalWrite = false;
-        },
-    };
-    Object.defineProperty(widget, "value", {
-        configurable: true,
-        enumerable: true,
-        get: () => storedValue,
-        set: (value) => {
-            storedValue = value;
-            originalWidget.callback?.(storedValue);
-            if (!internalWrite) onExternalValue?.(storedValue);
-        },
-    });
-    node.widgets[index] = widget;
-    originalWidget.hidden = true;
-    originalWidget.datangHidden = true;
-    if (originalWidget.inputEl?.style) originalWidget.inputEl.style.display = "none";
-    return widget;
-}
-
 function optionMarkup(items) {
     return items.map((item) => `<option value="${item.id}">${item.label}</option>`).join("");
 }
@@ -462,7 +427,8 @@ function createUi(node, originalDataWidget, originalDpiWidget) {
     let dpiWidget = null;
     let uiFailed = false;
     let externalInputs = resolveExternalInputs(node);
-    let externalInputsFingerprint = "";
+    let externalInputsFingerprint = externalFingerprint(externalInputs);
+    let layoutNeedsConfirmation = false;
     let manualPhotoSettings = {
         photoPresetId: settings.photoPresetId,
         customPhotoUnit: settings.customPhotoUnit,
@@ -512,6 +478,10 @@ function createUi(node, originalDataWidget, originalDpiWidget) {
                 settings = applyExternalValues({ ...settings, layoutMode: "auto_fill", columns: 0, rows: 0 });
                 selectedOrientation = "";
             }
+        }
+        if (layoutNeedsConfirmation) {
+            renderControls();
+            return;
         }
         renderManual();
     }
@@ -740,6 +710,7 @@ function createUi(node, originalDataWidget, originalDpiWidget) {
     }
 
     function renderManual({ write = true } = {}) {
+        layoutNeedsConfirmation = false;
         externalLayout = null;
         const candidates = buildLayoutCandidates(settings);
         let selected = candidates.find((candidate) => candidate.orientation === selectedOrientation && candidate.valid)
@@ -804,6 +775,7 @@ function createUi(node, originalDataWidget, originalDpiWidget) {
     }
 
     function renderExternal(value) {
+        layoutNeedsConfirmation = false;
         const storedSettings = settingsFromLayout(value);
         if (storedSettings) {
             settings = storedSettings;
@@ -812,7 +784,24 @@ function createUi(node, originalDataWidget, originalDpiWidget) {
             return;
         }
         externalLayout = previewFromLayout(value);
-        if (!externalLayout) return;
+        if (!externalLayout) {
+            layoutNeedsConfirmation = true;
+            paintPreview(null);
+            elements.schemes.replaceChildren();
+            elements.schemes.hidden = true;
+            elements.title.textContent = "排版数据未确认";
+            setSummaryLines([]);
+            elements.json.value = "";
+            elements.status.className = "datang-id-photo__status is-error";
+            elements.status.textContent = value == null || String(value).trim() === ""
+                ? "工作流未保存排版数据，请选择快捷排版或重新确认排版参数后再运行。"
+                : "排版数据无法识别，请核查原数据；重新选择排版参数会替换当前数据。";
+            elements.status.hidden = false;
+            renderControls();
+            renderPresets();
+            resizeNode();
+            return;
+        }
         paintPreview(externalLayout);
         elements.schemes.replaceChildren();
         elements.schemes.hidden = true;
@@ -842,6 +831,12 @@ function createUi(node, originalDataWidget, originalDpiWidget) {
         hideOnZoom: false,
     });
     domWidget.serialize = false;
+    afterLayoutConfigured(node, () => {
+        if (uiFailed) return;
+        externalInputs = resolveExternalInputs(node);
+        externalInputsFingerprint = externalFingerprint(externalInputs);
+        renderExternal(dataWidget.value);
+    });
 
     for (const input of root.querySelectorAll("[data-field]")) {
         input.addEventListener("change", () => {
@@ -949,7 +944,8 @@ function createUi(node, originalDataWidget, originalDpiWidget) {
         forwardWheelToCanvas(event);
     }, { passive: false });
     try {
-        if (externalLayout) renderExternal(dataWidget.value);
+        if (!initialPreview) renderExternal(dataWidget.value);
+        else if (externalLayout) renderExternal(dataWidget.value);
         else synchronizeExternalInputs({ force: true });
     } catch (error) {
         uiFailed = true;

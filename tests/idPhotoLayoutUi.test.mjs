@@ -171,8 +171,7 @@ test("外部裁剪规格实时接管尺寸和 DPI 并锁定冲突控件", () => 
 });
 
 test("隐藏 DPI 不再伪装成可连接控件并迁移旧版错位连线", () => {
-    assert.match(source, /datangHidden: true/);
-    assert.match(source, /originalWidget\.datangHidden = true/);
+    assert.match(source, /import \{ hideDataWidget, afterLayoutConfigured \} from/);
     assert.match(source, /function repairLegacyConvertedDpiInput\(node\)/);
     assert.match(source, /if \(!node\.graph\) return false/);
     assert.match(source, /if \(!link\) return false/);
@@ -208,4 +207,16 @@ test("节点面板按住中键可以继续拖动 ComfyUI 画布", () => {
     assert.match(source, /app\.canvas\?\.processMouseUp\?\.\(event\)/);
     assert.match(source, /root\.setPointerCapture\?\.\(event\.pointerId\)/);
     assert.match(source, /root\.addEventListener\("pointercancel", finishCanvasPan\)/);
+});
+
+
+test("加载空排版数据明确提示且不让外部轮询悄悄生成默认布局", () => {
+    assert.match(source, /afterLayoutConfigured\(node, \(\) =>/);
+    assert.match(source, /if \(!initialPreview\) renderExternal\(dataWidget\.value\)/);
+    assert.match(source, /layoutNeedsConfirmation = true/);
+    assert.match(source, /工作流未保存排版数据/);
+    assert.match(source, /排版数据无法识别/);
+    assert.match(source, /if \(layoutNeedsConfirmation\) \{\s+renderControls\(\);\s+return/);
+    assert.match(source, /elements\.json\.value = ""/);
+    assert.match(source, /externalInputsFingerprint = externalFingerprint\(externalInputs\)/);
 });
