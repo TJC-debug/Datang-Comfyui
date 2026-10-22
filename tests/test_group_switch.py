@@ -32,7 +32,7 @@ class DatangGroupSwitchTests(unittest.TestCase):
             spec.loader.exec_module(package)
         finally:
             sys.modules.pop(spec.name, None)
-        self.assertEqual(package.__version__, "0.4.58")
+        self.assertEqual(package.__version__, "0.4.62")
         self.assertEqual(
             set(package.NODE_CLASS_MAPPINGS),
             {

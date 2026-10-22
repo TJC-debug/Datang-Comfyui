@@ -105,6 +105,26 @@ function setNativeWidgetValue(widget, value) {
     }
 }
 
+// A repaint does not update ComfyUI's cached tab state. Commit through the
+// widget value and the owning graph transaction, before the user can switch tabs.
+function commitSwitchboardValue(node, widget, value) {
+    const graph = node.graph;
+    if (!graph || app.configuringGraph || widget.value === value) return;
+    if (typeof graph.getNodeById === "function" && graph.getNodeById(node.id) !== node) return;
+    graph.beforeChange?.();
+    try {
+        widget.value = value;
+        node.setDirtyCanvas?.(true, true);
+        graph.setDirtyCanvas?.(true, true);
+    } finally {
+        graph.afterChange?.();
+    }
+    // Compatibility with frontends whose graph change hook only marks dirty.
+    if (graph === app.graph) {
+        app.extensionManager?.workflow?.activeWorkflow?.changeTracker?.checkState?.();
+    }
+}
+
 function hideNativeWidget(widget) {
     widget.hidden = true;
     // LiteGraph's canvas renderer does not treat the literal "hidden" type
@@ -427,7 +447,7 @@ function installStyles() {
     document.head.appendChild(style);
 }
 
-function createSwitchboard(node, dataWidget, separatorWidget) {
+function createSwitchboard(node, dataWidget, separatorWidget, commitValue) {
     let items = normaliseItems(dataWidget.value);
     let selectionMode = getSelectionMode(items);
     const root = document.createElement("div");
@@ -534,11 +554,11 @@ function createSwitchboard(node, dataWidget, separatorWidget) {
         });
     };
 
-    const enforceSingleSelection = () => {
-        if (selectionMode !== "单选") return false;
+    const enforceSingleSelection = (entries = items, mode = selectionMode) => {
+        if (mode !== "单选") return false;
         let foundEnabled = false;
         let changed = false;
-        for (const item of items) {
+        for (const item of entries) {
             if (!item.enabled) continue;
             if (!foundEnabled) {
                 foundEnabled = true;
@@ -552,13 +572,13 @@ function createSwitchboard(node, dataWidget, separatorWidget) {
 
     const notifyChanged = () => {
         const serialised = serialiseItems(items, selectionMode);
-        setNativeWidgetValue(dataWidget, serialised);
+        commitValue(dataWidget, serialised);
         node.setDirtyCanvas?.(true, true);
         app.graph?.setDirtyCanvas?.(true, true);
     };
 
     const notifySeparatorChanged = () => {
-        setNativeWidgetValue(separatorWidget, separatorInput.value);
+        commitValue(separatorWidget, separatorInput.value);
         node.setDirtyCanvas?.(true, true);
         app.graph?.setDirtyCanvas?.(true, true);
     };
@@ -922,8 +942,12 @@ function createSwitchboard(node, dataWidget, separatorWidget) {
     return {
         widget: domWidget,
         setValue(value) {
-            items = normaliseItems(value);
-            selectionMode = getSelectionMode(items);
+            const nextItems = normaliseItems(value);
+            const nextMode = getSelectionMode(nextItems);
+            enforceSingleSelection(nextItems, nextMode);
+            if (serialiseItems(items, selectionMode) === serialiseItems(nextItems, nextMode)) return;
+            items = nextItems;
+            selectionMode = nextMode;
             modeSelect.value = selectionMode;
             enforceSingleSelection();
             render();
@@ -931,7 +955,7 @@ function createSwitchboard(node, dataWidget, separatorWidget) {
         },
         setSeparator(value) {
             const separator = normaliseSeparator(value);
-            separatorInput.value = separator;
+            if (separatorInput.value !== separator) separatorInput.value = separator;
             if (separator !== value) setNativeWidgetValue(separatorWidget, separator);
         },
     };
@@ -961,7 +985,16 @@ app.registerExtension({
         hideNativeWidget(dataWidget);
         hideNativeWidget(separatorWidget);
 
-        const switchboard = createSwitchboard(node, dataWidget, separatorWidget);
+        let writingFromUi = false;
+        const commitValue = (widget, value) => {
+            writingFromUi = true;
+            try {
+                commitSwitchboardValue(node, widget, value);
+            } finally {
+                writingFromUi = false;
+            }
+        };
+        const switchboard = createSwitchboard(node, dataWidget, separatorWidget, commitValue);
         let syncScheduled = false;
         const scheduleSync = () => {
             if (syncScheduled) return;
@@ -981,7 +1014,7 @@ app.registerExtension({
             const originalCallback = widget.callback;
             widget.callback = function () {
                 originalCallback?.apply(this, arguments);
-                scheduleSync();
+                if (!writingFromUi) scheduleSync();
             };
         }
         scheduleSync();

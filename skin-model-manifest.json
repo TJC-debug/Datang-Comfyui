@@ -1,0 +1,29 @@
+{
+  "files": [
+    {
+      "path": "retouch/joint_20210926.pth",
+      "bytes": 227618450,
+      "sha256": "c9e1388b19d9334c90db08308c86de208f535920ee381ae8a9cb63484a78351a"
+    },
+    {
+      "path": "retouch/pytorch_model.pt",
+      "bytes": 53646276,
+      "sha256": "760d0c0b95c4e0a692165677fe2b82dbdf8fbbd4a3780ca966599c627b082993"
+    },
+    {
+      "path": "retinaface/pytorch_model.pt",
+      "bytes": 109497761,
+      "sha256": "6d1de9c2944f2ccddca5f5e010ea5ae64a39845a86311af6fdf30841b0a5a16d"
+    },
+    {
+      "path": "retinaface/configuration.json",
+      "bytes": 509,
+      "sha256": "d03ba2dd7a34450d7e1b088701e2e4118b31b7f5791697188df0a60952207ecc"
+    }
+  ],
+  "runtimeDownloads": false,
+  "model": "iic/cv_unet_skin-retouching",
+  "runtimeTensorFlowRequired": false,
+  "detector": "damo/cv_resnet50_face-detection_retinaface",
+  "weightsIncluded": false
+}

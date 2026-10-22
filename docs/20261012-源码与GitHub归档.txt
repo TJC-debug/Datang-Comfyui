@@ -1,0 +1,9 @@
+Datang-Comfyui 0.4.58 源码归档（2026-10-12）
+
+本次用户明确授权本地 Git 归档及完成后关机。Datang 源码、测试及文档纳入本地提交；父仓库内 PS_AI 的既有改动保持未提交，不随本次归档写入。上轮 GitHub main 已推送 c4195921703a00ba18125144267809849fa02f5c；这次不额外推送或打标签。
+
+必读 AGENTS.md、Datang-Comfyui/README.md 和 docs/证件照排版隐藏参数兼容.md。正式源码 0.4.58；本机安装上轮实读 0.4.56，平台安装版本未直接读取。管理员需要更新完整 GitHub 节点仓库，包含 web/id_photo_layout_widgets.js，重启环境后再验证原工作流。
+
+Node 87 项、Python 158 项自动检查通过；此前隔离渲染器 14 项及合成图函数级检查通过，不能替代真实平台照片、保存重载或纳贝/Photoshop端到端验收。原工作流 [300,null] 未保存布局，不自动编造默认值，需要升级后重新确认。
+
+本地提交和保留的工作树差异以 git log/status 为准。完整交接在工作台 docs/20261012-接续与归档.txt；外部归档证据在 C:/Users/Administrator/Documents/Codex/2026-10-09/1-e-ai-ai-runninghub-0/handoff-closeout。

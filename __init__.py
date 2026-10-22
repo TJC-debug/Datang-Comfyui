@@ -114,7 +114,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
 }
 
 WEB_DIRECTORY = "./web"
-__version__ = "0.4.58"
+__version__ = "0.4.62"
 
 __all__ = [
     "NODE_CLASS_MAPPINGS",

@@ -1,0 +1,75 @@
+{
+  "modelscopeVersion": "1.40.2",
+  "runtimeModelScopeRequired": false,
+  "runtimeTensorFlowRequired": false,
+  "files": [
+    {
+      "path": "__init__.py",
+      "sha256": "21c433ef51bb60383c1c13c8d1434d13982a4ac901071f5a61430b41afe47527"
+    },
+    {
+      "path": "detection_model/__init__.py",
+      "sha256": "21c433ef51bb60383c1c13c8d1434d13982a4ac901071f5a61430b41afe47527"
+    },
+    {
+      "path": "detection_model/detection_module.py",
+      "sha256": "23fce16544465ef41232ce652fecc95a71db3bb81af575d4aefc472a4e45a2ec"
+    },
+    {
+      "path": "detection_model/detection_unet_in.py",
+      "sha256": "e3b02ff03941aabc967c0fa66c39a00a56e84fbbe98f15c52de6bdf5555a9168"
+    },
+    {
+      "path": "inpainting_model/__init__.py",
+      "sha256": "21c433ef51bb60383c1c13c8d1434d13982a4ac901071f5a61430b41afe47527"
+    },
+    {
+      "path": "inpainting_model/gconv.py",
+      "sha256": "fca8ece60d31dabf3d6eda186657efd72328f94aafe7b11fe130259ee873bd20"
+    },
+    {
+      "path": "inpainting_model/inpainting_unet.py",
+      "sha256": "23880e98226dc12ce844f3042ad53cca91ef4acf235332d49b423e1ec151f59f"
+    },
+    {
+      "path": "retinaface/__init__.py",
+      "sha256": "21c433ef51bb60383c1c13c8d1434d13982a4ac901071f5a61430b41afe47527"
+    },
+    {
+      "path": "retinaface/detector.py",
+      "sha256": "7b51c24da40203a36a9ef7b56570d39190f3c2fa2d96ceec3e23533a6ecca4bd"
+    },
+    {
+      "path": "retinaface/models/__init__.py",
+      "sha256": "21c433ef51bb60383c1c13c8d1434d13982a4ac901071f5a61430b41afe47527"
+    },
+    {
+      "path": "retinaface/models/net.py",
+      "sha256": "ee63258da494f808dd9800d567f263f240fbb5768e4b1b2ce48a3995f9ae6077"
+    },
+    {
+      "path": "retinaface/models/retinaface.py",
+      "sha256": "90502700bb16bbaab4591914a0d313fec3cbb4061db9ea2fefe350db7996aa67"
+    },
+    {
+      "path": "retinaface/utils.py",
+      "sha256": "0dca71645e926bda3e02a8d5e770496bbddcdf9ec970f1b5bc32086172e3cf48"
+    },
+    {
+      "path": "retouch_methods.py",
+      "sha256": "c0567aef83cf6de77740c6e2bc6c1a83e459ca812d75662fab2077790b117432"
+    },
+    {
+      "path": "unet_deploy.py",
+      "sha256": "5fa3b9a4ba599908025057d64fe3b44ad71f6bb8614c8d13618a4cd5bbe7936b"
+    },
+    {
+      "path": "utils.py",
+      "sha256": "f075ac6d4997370d80b10d946c0aebcecbc094bdbd75072236b3d8b905403d88"
+    },
+    {
+      "path": "weights_init.py",
+      "sha256": "5feb5da62e7a97cca5e60488c96d76c48074ca7521526dca0a91498880381e5b"
+    }
+  ]
+}

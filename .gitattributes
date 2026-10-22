@@ -1,0 +1,3 @@
+# These vendored files are verified byte-for-byte by source-manifest.json.
+# Keep the upstream mixture of line endings stable across Windows checkouts.
+skin_retouch_core/** -text whitespace=cr-at-eol,-blank-at-eof

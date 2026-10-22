@@ -62,6 +62,14 @@ function isEmbeddedController(node) {
     return isController(node) && node?.properties?.datang_embedded_controller === true;
 }
 
+// A previous workflow can still have pending callbacks after the graph is reused.
+// Only the exact node owned by the current, fully configured graph may mutate it.
+function liveNodeGraph(node) {
+    const graph = node?.graph;
+    if (!graph || graph !== app.graph || app.configuringGraph || !graphNodes(graph).includes(node)) return null;
+    return graph;
+}
+
 let activeControllerIndex = null;
 
 function refreshControllerIndex(graph = app.graph) {
@@ -222,7 +230,8 @@ function syncControllerIdentity(node, group, widget) {
 }
 
 function applyControllerState(node, widget, { transaction = false, index = null, recomputeMembers = true } = {}) {
-    const graph = node?.graph || app.graph;
+    const graph = liveNodeGraph(node);
+    if (!graph) return false;
     const currentIndex = index || controllerIndex(graph);
     const group = resolveBoundGroup(node, currentIndex);
     if (!graph || !group || !widget) return false;
@@ -306,7 +315,7 @@ function restoreVisibleController(node) {
 }
 
 function removeGroupOwnedController(node) {
-    const graph = node?.graph || app.graph;
+    const graph = liveNodeGraph(node);
     if (!graph || typeof graph.remove !== "function") return false;
     graph.beforeChange?.();
     try {
@@ -340,8 +349,10 @@ function removeGroupOwnedController(node) {
     }
 }
 
-function synchronizeController(node, index = controllerIndex(node?.graph || app.graph)) {
-    if (!isController(node)) return false;
+function synchronizeController(node, index = null) {
+    const graph = liveNodeGraph(node);
+    if (!isController(node) || !graph) return false;
+    index ||= controllerIndex(graph);
     const widget = node.widgets?.find((item) => item.name === WIDGET_NAME);
     if (!widget) return false;
     const group = resolveBoundGroup(node, index);
@@ -381,7 +392,10 @@ function bindController(node) {
         node.setSize?.(node.size);
     }
     for (const delay of [0, 120, 600]) {
-        setTimeout(() => synchronizeController(node, refreshControllerIndex(node?.graph || app.graph)), delay);
+        setTimeout(() => {
+            const graph = liveNodeGraph(node);
+            if (graph) synchronizeController(node, refreshControllerIndex(graph));
+        }, delay);
     }
 }
 
@@ -440,6 +454,7 @@ function installCanvasDrawing() {
 }
 
 function toggleGroup(group, graph) {
+    if (app.configuringGraph || graph !== app.graph || !graphGroups(graph).includes(group)) return false;
     const index = refreshControllerIndex(graph);
     const controller = groupController(group, graph, index);
     const widget = controller?.widgets?.find((item) => item.name === WIDGET_NAME);
@@ -477,7 +492,7 @@ function installCanvasMouseHook(canvas) {
 
 function syncAllControllers() {
     const graph = app.graph;
-    if (!graph) return;
+    if (!graph || app.configuringGraph) return;
     installCanvasMouseHook(app.canvas);
     const index = refreshControllerIndex(graph);
     for (const node of index?.controllers || []) {
@@ -492,7 +507,7 @@ function syncAllControllers() {
 function applyRequestedGroupState(event) {
     const graph = app.graph;
     const controllerId = event?.detail?.controllerId;
-    if (!graph || controllerId === null || controllerId === undefined) return false;
+    if (!graph || app.configuringGraph || controllerId === null || controllerId === undefined) return false;
     const index = refreshControllerIndex(graph);
     const controller = index?.controllers?.find((node) => String(node.id) === String(controllerId));
     const widget = controller?.widgets?.find((item) => item.name === WIDGET_NAME);
@@ -608,12 +623,101 @@ export function createDatangParameterGroup(canvas, selectedNodes) {
     }
 }
 
+// User-invoked repair adds only the missing controller to the existing frame.
+export function repairDatangGroupSwitch(canvas, group) {
+    const graph = canvas?.graph;
+    if (!graph || graph !== app.graph || app.configuringGraph || !graphGroups(graph).includes(group)) {
+        throw new Error("请等待当前工作流加载完成后再修复开关。");
+    }
+    const state = readDatangGroupState(group);
+    if (!state) throw new Error("此组不是大汤开关组。");
+    const index = refreshControllerIndex(graph);
+    const existing = groupController(group, graph, index);
+    if (existing) return { group, controller: existing, repaired: false };
+    if (!state.enabled) {
+        throw new Error("此组关闭前的节点状态已随控制节点缺失，不能安全自动恢复。请先从工作流备份核对。");
+    }
+    const members = groupMembers(group, null);
+    if (members.some((node) => Number(node.mode ?? 0) !== 0)) {
+        throw new Error("组内有单独忽略或停用的节点，请先核对备份中的节点状态，避免修复时改变现有执行方式。");
+    }
+    const controller = LiteGraph.createNode(NODE_CLASS);
+    const widget = controller?.widgets?.find((item) => item.name === WIDGET_NAME);
+    if (!controller || !widget) throw new Error("大汤开关节点未完整注册，请检查大汤节点插件是否完整加载。");
+    const previousState = group.flags.datang_group_switch;
+    const savedId = state.controller_id;
+    if (savedId !== null && savedId !== undefined
+        && !graphNodes(graph).some((node) => String(node.id) === String(savedId))) {
+        controller.id = savedId;
+    }
+    controller.properties ||= {};
+    Object.assign(controller.properties, {
+        datang_group_title: String(group.title || "大汤节点组"),
+        datang_group_switch: true,
+        datang_embedded_controller: true,
+        datang_delete_with_group: true,
+        datang_legacy_size: [260, 82],
+    });
+    controller.__datangResolvedGroup = true;
+    widget.value = true;
+    keepControllerInHeader(controller, group);
+    graph.beforeChange?.();
+    try {
+        graph.add(controller);
+        if (!liveNodeGraph(controller)) throw new Error("当前工作流已切换，未完成开关修复。");
+        group.flags.datang_group_switch = {
+            ...(previousState && typeof previousState === "object" ? previousState : {}),
+            version: 2,
+            controller_id: controller.id,
+            enabled: true,
+        };
+        placeControllerInPsAiOrder(graph, controller, members);
+        bindController(controller);
+        synchronizeController(controller, refreshControllerIndex(graph));
+        graph.change?.();
+        graph.setDirtyCanvas?.(true, true);
+        canvas.setDirty?.(true, true);
+        app.extensionManager?.workflow?.activeWorkflow?.changeTracker?.checkState?.();
+        notifyGroupSwitchChanged(group, controller, true);
+        return { group, controller, repaired: true };
+    } finally {
+        graph.afterChange?.();
+    }
+}
+
 function installCanvasMenu() {
     if (LGraphCanvas.prototype.__datangGroupMenuInstalled) return;
     LGraphCanvas.prototype.__datangGroupMenuInstalled = true;
     const original = LGraphCanvas.prototype.getCanvasMenuOptions;
     LGraphCanvas.prototype.getCanvasMenuOptions = function () {
         const options = original.apply(this, arguments);
+        if (!app.configuringGraph && this.graph === app.graph) {
+            const index = refreshControllerIndex(this.graph);
+            const missingGroups = graphGroups(this.graph).filter((group) => (
+                readDatangGroupState(group) && !groupController(group, this.graph, index)
+            ));
+            if (missingGroups.length > 0) {
+                options.push(null, {
+                    content: "大汤：修复缺失的组开关",
+                    submenu: {
+                        options: missingGroups.map((group) => ({
+                            content: readDatangGroupState(group).enabled
+                                ? String(group.title || "未命名组")
+                                : `${group.title || "未命名组"}（关闭状态需核对备份）`,
+                            disabled: !readDatangGroupState(group).enabled,
+                            callback: () => {
+                                try {
+                                    return repairDatangGroupSwitch(this, group);
+                                } catch (error) {
+                                    window.alert(`开关组未修复：${error?.message || error}`);
+                                    return false;
+                                }
+                            },
+                        })),
+                    },
+                });
+            }
+        }
         const selectedNodes = Object.values(this.selected_nodes || {}).filter((node) => !isController(node));
         options.push(null, {
             content: selectedNodes.length
@@ -643,6 +747,9 @@ app.registerExtension({
             globalThis.__datangGroupSyncTimer = setInterval(syncAllControllers, SYNC_INTERVAL_MS);
         }
     },
+    afterConfigureGraph() {
+        setTimeout(syncAllControllers, 0);
+    },
     nodeCreated(node) {
         if (isController(node)) {
             bindController(node);
@@ -652,7 +759,9 @@ app.registerExtension({
             node.properties ||= {};
             node.properties.datang_group_presence_marker = true;
             for (const delay of [0, 120, 600]) {
-                setTimeout(() => syncPresenceMarker(node), delay);
+                setTimeout(() => {
+                    if (liveNodeGraph(node)) syncPresenceMarker(node);
+                }, delay);
             }
         }
     },

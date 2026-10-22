@@ -1,6 +1,6 @@
 {
   "name": "datang-comfyui",
-  "version": "0.4.58",
+  "version": "0.4.62",
   "private": true,
   "type": "module",
   "scripts": {

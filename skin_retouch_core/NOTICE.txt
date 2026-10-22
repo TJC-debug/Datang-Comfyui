@@ -1,0 +1,13 @@
+PyTorch skin retouching core adapted from Alibaba ModelScope 1.40.2.
+Original project: https://github.com/modelscope/modelscope
+Model: iic/cv_unet_skin-retouching (Apache-2.0).
+RetinaFace detector: damo/cv_resnet50_face-detection_retinaface.
+RetinaFace components are based on https://github.com/biubug6/Pytorch_Retinaface (MIT).
+Licenses: ../licenses/MODELSCOPE-APACHE-2.0.txt and ../licenses/RETINAFACE-MIT.txt.
+
+Changes: no ModelScope framework/Pipeline/TensorFlow dependency or whitening stage;
+local imports, strict local weight loading, no pretrained downloads, no global cuDNN
+mutation; expose upstream local detection MASK along with local inpainting output.
+The network architectures, detection thresholds, ROI and local patch blending are
+retained. Integration and inference controls live in ../skin_retouch_engine.py.
+No model weights are distributed in this source tree.

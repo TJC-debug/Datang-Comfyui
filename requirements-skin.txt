@@ -1,0 +1,2 @@
+# Optional skin retouch runtime only. Keep the ComfyUI Torch/torchvision pair unchanged.
+einops>=0.7,<1
